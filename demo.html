@@ -1,0 +1,632 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Monty's AI Receptionist — Live Demo</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #0f172a;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 16px;
+  }
+
+  .page-header {
+    text-align: center;
+    margin-bottom: 32px;
+  }
+
+  .page-header .brand {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #f59e0b;
+    margin-bottom: 8px;
+  }
+
+  .page-header h1 {
+    font-size: 28px;
+    font-weight: 700;
+    color: #f8fafc;
+    margin-bottom: 6px;
+  }
+
+  .page-header p {
+    font-size: 14px;
+    color: #64748b;
+  }
+
+  .demo-wrap {
+    display: flex;
+    gap: 28px;
+    align-items: flex-start;
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 20px;
+    padding: 28px;
+    max-width: 640px;
+    width: 100%;
+  }
+
+  /* ── Phone ── */
+  .phone-shell {
+    width: 210px;
+    flex-shrink: 0;
+    background: #111827;
+    border-radius: 28px;
+    padding: 12px;
+    border: 6px solid #1f2937;
+    box-shadow: 0 0 0 1px #374151, 0 24px 48px rgba(0,0,0,0.5);
+  }
+
+  .phone-notch {
+    width: 56px;
+    height: 9px;
+    background: #1f2937;
+    border-radius: 8px;
+    margin: 0 auto 10px;
+  }
+
+  .phone-screen {
+    background: #0f172a;
+    border-radius: 18px;
+    padding: 10px 8px 12px;
+    min-height: 360px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .call-header {
+    text-align: center;
+    padding: 6px 0 10px;
+    border-bottom: 0.5px solid #1e293b;
+    margin-bottom: 8px;
+  }
+
+  .call-header .company {
+    font-size: 10px;
+    color: #f59e0b;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .status-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    margin-top: 4px;
+  }
+
+  .live-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #334155;
+    transition: background 0.3s;
+  }
+
+  .live-dot.active {
+    background: #22c55e;
+    animation: pulse 1.5s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  .status-text {
+    font-size: 9px;
+    color: #64748b;
+  }
+
+  .call-timer {
+    font-size: 9px;
+    color: #334155;
+    margin-top: 2px;
+  }
+
+  .chat-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    overflow-y: auto;
+    max-height: 265px;
+    padding: 0 2px;
+    scroll-behavior: smooth;
+  }
+
+  .bubble {
+    display: flex;
+    flex-direction: column;
+    max-width: 92%;
+    opacity: 0;
+    transform: translateY(6px);
+    transition: opacity 0.3s, transform 0.3s;
+  }
+
+  .bubble.show { opacity: 1; transform: translateY(0); }
+  .bubble.ai { align-self: flex-start; }
+  .bubble.user { align-self: flex-end; }
+
+  .bubble-label {
+    font-size: 7.5px;
+    color: #475569;
+    margin-bottom: 2px;
+    padding-left: 4px;
+  }
+
+  .bubble.user .bubble-label { text-align: right; padding-right: 4px; }
+
+  .bubble-text {
+    font-size: 9.5px;
+    line-height: 1.5;
+    padding: 6px 8px;
+    border-radius: 10px;
+  }
+
+  .bubble.ai .bubble-text {
+    background: #1e3a5f;
+    color: #bfdbfe;
+    border-bottom-left-radius: 3px;
+  }
+
+  .bubble.user .bubble-text {
+    background: #1e293b;
+    color: #cbd5e1;
+    border-bottom-right-radius: 3px;
+  }
+
+  .typing-indicator {
+    display: flex;
+    gap: 3px;
+    padding: 7px 10px;
+    background: #1e3a5f;
+    border-radius: 10px;
+    border-bottom-left-radius: 3px;
+    width: fit-content;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .typing-indicator.show { opacity: 1; }
+
+  .typing-indicator span {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: #60a5fa;
+    animation: bounce 1.2s infinite;
+  }
+
+  .typing-indicator span:nth-child(2) { animation-delay: 0.15s; }
+  .typing-indicator span:nth-child(3) { animation-delay: 0.3s; }
+
+  @keyframes bounce {
+    0%, 80%, 100% { transform: translateY(0); }
+    40% { transform: translateY(-4px); }
+  }
+
+  .phone-btn-row {
+    display: flex;
+    justify-content: center;
+    margin-top: 12px;
+  }
+
+  .home-btn {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: #1f2937;
+    border: 0.5px solid #374151;
+  }
+
+  /* ── Right Panel ── */
+  .right-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .scenario-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #64748b;
+  }
+
+  .scenario-cards { display: flex; flex-direction: column; gap: 6px; }
+
+  .scenario-card {
+    padding: 10px 12px;
+    border: 0.5px solid #334155;
+    border-radius: 10px;
+    cursor: pointer;
+    background: #0f172a;
+    transition: border-color 0.15s, background 0.15s;
+    text-align: left;
+  }
+
+  .scenario-card:hover { border-color: #475569; background: #1e293b; }
+  .scenario-card.active { border-color: #f59e0b; background: #1e293b; }
+
+  .sc-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #e2e8f0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .sc-icon {
+    width: 18px; height: 18px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    flex-shrink: 0;
+  }
+
+  .sc-icon.amber { background: #451a03; color: #fbbf24; }
+  .sc-icon.blue  { background: #1e3a5f; color: #60a5fa; }
+  .sc-icon.green { background: #052e16; color: #4ade80; }
+
+  .sc-sub {
+    font-size: 10px;
+    color: #64748b;
+    margin-top: 2px;
+    padding-left: 24px;
+  }
+
+  .play-btn {
+    width: 100%;
+    padding: 10px;
+    background: #f59e0b;
+    color: #1c1917;
+    border: none;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: opacity 0.15s, transform 0.1s;
+  }
+
+  .play-btn:hover { opacity: 0.88; }
+  .play-btn:active { transform: scale(0.98); }
+  .play-btn:disabled { opacity: 0.35; cursor: default; transform: none; }
+
+  .outcome-box {
+    padding: 10px 12px;
+    background: #0f172a;
+    border-radius: 10px;
+    border: 0.5px solid #334155;
+    display: none;
+  }
+
+  .outcome-box.show { display: block; }
+
+  .out-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: #64748b;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 7px;
+  }
+
+  .outcome-tags { display: flex; flex-wrap: wrap; gap: 5px; }
+
+  .out-tag {
+    font-size: 11px;
+    padding: 3px 9px;
+    border-radius: 20px;
+    font-weight: 600;
+  }
+
+  .out-tag.green { background: #052e16; color: #4ade80; }
+  .out-tag.blue  { background: #1e3a5f; color: #60a5fa; }
+  .out-tag.amber { background: #451a03; color: #fbbf24; }
+
+  .reset-link {
+    font-size: 11px;
+    color: #475569;
+    cursor: pointer;
+    text-align: center;
+    text-decoration: underline;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .reset-link.show { opacity: 1; }
+  .reset-link:hover { color: #94a3b8; }
+
+  .page-footer {
+    margin-top: 24px;
+    font-size: 11px;
+    color: #334155;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <div class="brand">Monty's Handyman Services</div>
+  <h1>AI Receptionist Demo</h1>
+  <p>Select a scenario and press play to see the agent in action</p>
+</div>
+
+<div class="demo-wrap">
+
+  <div class="phone-shell">
+    <div class="phone-notch"></div>
+    <div class="phone-screen">
+      <div class="call-header">
+        <div class="company">Monty's Handyman</div>
+        <div class="status-row">
+          <div class="live-dot" id="liveDot"></div>
+          <span class="status-text" id="statusText">Select a scenario</span>
+        </div>
+        <div class="call-timer" id="callTimer"></div>
+      </div>
+      <div class="chat-area" id="chatArea">
+        <div class="typing-indicator" id="typingEl">
+          <span></span><span></span><span></span>
+        </div>
+      </div>
+    </div>
+    <div class="phone-btn-row">
+      <div class="home-btn"></div>
+    </div>
+  </div>
+
+  <div class="right-panel">
+    <div class="scenario-label">Choose a scenario</div>
+
+    <div class="scenario-cards">
+      <div class="scenario-card active" onclick="selectScenario(0)">
+        <div class="sc-title">
+          <div class="sc-icon amber">&#128295;</div>
+          Leaky faucet — 11 PM
+        </div>
+        <div class="sc-sub">Books appointment &amp; upsells membership</div>
+      </div>
+      <div class="scenario-card" onclick="selectScenario(1)">
+        <div class="sc-title">
+          <div class="sc-icon blue">&#128274;</div>
+          Out-of-scope job — HVAC
+        </div>
+        <div class="sc-sub">Routes to a vetted referral partner</div>
+      </div>
+      <div class="scenario-card" onclick="selectScenario(2)">
+        <div class="sc-title">
+          <div class="sc-icon green">&#11088;</div>
+          Post-visit follow-up
+        </div>
+        <div class="sc-sub">Collects review &amp; books next service</div>
+      </div>
+    </div>
+
+    <button class="play-btn" id="playBtn" onclick="startDemo()">
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2l10 6-10 6V2z"/></svg>
+      Play demo call
+    </button>
+
+    <div class="outcome-box" id="outcomeBox">
+      <div class="out-label">Call outcome</div>
+      <div class="outcome-tags" id="outcomeTags"></div>
+    </div>
+
+    <div class="reset-link" id="resetLink" onclick="resetDemo()">Reset demo</div>
+  </div>
+
+</div>
+
+<div class="page-footer">Confidential — prepared for Monty's Handyman Services</div>
+
+<script>
+const SCENARIOS = [
+  {
+    time: "11:23 PM · Saturday",
+    messages: [
+      { role:"ai",   text:"Hi, you've reached Monty's! I'm here 24/7. What can I help with tonight?", delay:800 },
+      { role:"user", text:"Hey my bathroom faucet is leaking pretty bad. Can someone come tomorrow?", delay:2200 },
+      { role:"ai",   text:"Absolutely — faucet repairs are one of our specialties! What's your zip code so I can confirm coverage?", delay:1500 },
+      { role:"user", text:"78745.", delay:1800 },
+      { role:"ai",   text:"We cover that area! I have a slot tomorrow at 10 AM. Want me to lock that in for you?", delay:1500 },
+      { role:"user", text:"Yes please!", delay:1800 },
+      { role:"ai",   text:"Done! You're booked for 10 AM tomorrow. Also — members get 15% off every job. Want me to text you the details?", delay:1500 },
+      { role:"user", text:"Sure, send it over.", delay:1800 },
+      { role:"ai",   text:"Perfect! You'll get a text shortly. See you tomorrow!", delay:1200 },
+    ],
+    outcomes: [
+      { label:"Booked: 10 AM", cls:"green" },
+      { label:"Membership pitched", cls:"amber" },
+      { label:"No staff needed", cls:"blue" },
+    ]
+  },
+  {
+    time: "9:42 PM · Sunday",
+    messages: [
+      { role:"ai",   text:"Hi, you've reached Monty's! How can I help you this evening?", delay:800 },
+      { role:"user", text:"My AC stopped working. It's 95 degrees. Can Monty's fix it?", delay:2200 },
+      { role:"ai",   text:"Oh no — that's rough in this heat! HVAC repairs are outside our scope, but I have a trusted partner who handles exactly this.", delay:1500 },
+      { role:"user", text:"Can they come today?", delay:1800 },
+      { role:"ai",   text:"I'll connect you right now. AirPro HVAC is available and highly rated. Shall I send their number to your phone?", delay:1500 },
+      { role:"user", text:"Yes, that'd be great.", delay:1800 },
+      { role:"ai",   text:"Sent! They're expecting your call. And for future handyman needs — Monty's has you covered. Have a good night!", delay:1300 },
+    ],
+    outcomes: [
+      { label:"Routed to partner", cls:"blue" },
+      { label:"Customer retained", cls:"green" },
+      { label:"Zero dropped calls", cls:"amber" },
+    ]
+  },
+  {
+    time: "6:15 PM · Monday",
+    messages: [
+      { role:"ai",   text:"Hey Sarah! This is Monty's AI following up on today's visit. How did everything go?", delay:800 },
+      { role:"user", text:"It was great! The tech fixed the door really fast.", delay:2200 },
+      { role:"ai",   text:"Awesome to hear! Would you mind leaving us a quick Google review? It takes 30 seconds and means the world to our team.", delay:1500 },
+      { role:"user", text:"Sure I can do that.", delay:1800 },
+      { role:"ai",   text:"Thank you so much! Here's the link: [Review link sent via SMS]. Also — anything else at home needing attention?", delay:1500 },
+      { role:"user", text:"Actually yes, I need a TV mounted.", delay:1800 },
+      { role:"ai",   text:"Perfect! I can schedule that for later this week. What day works for you?", delay:1400 },
+    ],
+    outcomes: [
+      { label:"Review requested", cls:"amber" },
+      { label:"Upsell booked", cls:"green" },
+      { label:"Fully automated", cls:"blue" },
+    ]
+  }
+];
+
+let currentScenario = 0;
+let running = false;
+let timerInterval = null;
+let elapsedSeconds = 0;
+
+function selectScenario(idx) {
+  if (running) return;
+  currentScenario = idx;
+  document.querySelectorAll('.scenario-card').forEach((c, i) => {
+    c.classList.toggle('active', i === idx);
+  });
+  resetDemo();
+}
+
+function resetDemo() {
+  clearInterval(timerInterval);
+  running = false;
+  elapsedSeconds = 0;
+  const chat = document.getElementById('chatArea');
+  const typing = document.getElementById('typingEl');
+  chat.innerHTML = '';
+  chat.appendChild(typing);
+  typing.classList.remove('show');
+  const dot = document.getElementById('liveDot');
+  dot.classList.remove('active');
+  document.getElementById('statusText').textContent = 'Select a scenario';
+  document.getElementById('callTimer').textContent = '';
+  document.getElementById('playBtn').disabled = false;
+  document.getElementById('outcomeBox').classList.remove('show');
+  document.getElementById('resetLink').classList.remove('show');
+}
+
+function startDemo() {
+  if (running) return;
+  running = true;
+  document.getElementById('playBtn').disabled = true;
+  document.getElementById('outcomeBox').classList.remove('show');
+  document.getElementById('resetLink').classList.remove('show');
+
+  document.getElementById('liveDot').classList.add('active');
+  document.getElementById('statusText').textContent = 'Call in progress';
+  document.getElementById('callTimer').textContent = '0:00';
+
+  elapsedSeconds = 0;
+  timerInterval = setInterval(() => {
+    elapsedSeconds++;
+    const m = Math.floor(elapsedSeconds / 60);
+    const s = elapsedSeconds % 60;
+    document.getElementById('callTimer').textContent = m + ':' + (s < 10 ? '0' : '') + s;
+  }, 1000);
+
+  const scenario = SCENARIOS[currentScenario];
+  let cumulativeDelay = 400;
+
+  scenario.messages.forEach((msg, i) => {
+    const showTypingAt = cumulativeDelay;
+    const showBubbleAt = cumulativeDelay + msg.delay;
+
+    if (msg.role === 'ai') {
+      setTimeout(showTyping, showTypingAt);
+    }
+
+    setTimeout(() => {
+      hideTyping();
+      addBubble(msg.role, msg.text);
+      if (i === scenario.messages.length - 1) {
+        setTimeout(() => endCall(scenario), 800);
+      }
+    }, showBubbleAt);
+
+    cumulativeDelay = showBubbleAt + 400;
+  });
+}
+
+function showTyping() {
+  document.getElementById('typingEl').classList.add('show');
+  const chat = document.getElementById('chatArea');
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function hideTyping() {
+  document.getElementById('typingEl').classList.remove('show');
+}
+
+function addBubble(role, text) {
+  const chat = document.getElementById('chatArea');
+  const typing = document.getElementById('typingEl');
+
+  const wrap = document.createElement('div');
+  wrap.className = 'bubble ' + role;
+
+  const label = document.createElement('div');
+  label.className = 'bubble-label';
+  label.textContent = role === 'ai' ? 'Monty AI' : 'Caller';
+
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble-text';
+  bubble.textContent = text;
+
+  wrap.appendChild(label);
+  wrap.appendChild(bubble);
+  chat.insertBefore(wrap, typing);
+
+  requestAnimationFrame(() => requestAnimationFrame(() => wrap.classList.add('show')));
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function endCall(scenario) {
+  clearInterval(timerInterval);
+  running = false;
+
+  document.getElementById('liveDot').classList.remove('active');
+  document.getElementById('statusText').textContent = 'Call ended';
+  document.getElementById('callTimer').textContent = scenario.time;
+
+  const tags = document.getElementById('outcomeTags');
+  tags.innerHTML = '';
+  scenario.outcomes.forEach(o => {
+    const t = document.createElement('span');
+    t.className = 'out-tag ' + o.cls;
+    t.textContent = o.label;
+    tags.appendChild(t);
+  });
+
+  document.getElementById('outcomeBox').classList.add('show');
+  document.getElementById('resetLink').classList.add('show');
+}
+</script>
+
+</body>
+</html>
